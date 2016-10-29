@@ -1,5 +1,6 @@
  package com.example.ashik619.carapp;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -29,18 +30,15 @@ import java.util.ArrayList;
 import java.util.List;
 
  public class MainActivity extends AppCompatActivity {
-     //AutoCompleteTextView brandtextview;
-     String[] arr = {"Ford", "Nissan", "Aston Martin", "Toyota", "Ferrari"};
      HttpURLConnection urlConnection = null;
      BufferedReader reader = null;
-     TextView tv2;
+     TextView make;
+     TextView car;
      List<String> Makes = new ArrayList<String>();
      List<String> Cars = new ArrayList<String>();
      Context context = MainActivity.this;
      String JsonStr = null;
      String HttpJsonStr = null;
-     String temp = "{\"count\":10,\"next\":null,\"previous\":null,\"results\":[{\"name\":\"ford\"},{\"name\":\"Maruti Suzuki\"},{\"name\":\"Nissan\"},{\"name\":\"Volkswagen\"},{\"name\":\"Honda\"},{\"name\":\"Renault\"}," +
-             "{\"name\":\"Mahindra\"},{\"name\":\"Toyota\"},{\"name\":\"BMW\"},{\"name\":\"Mercedes Benz\"}]}";
      String brandUrlString = "http://ashik619.pythonanywhere.com/rest/brands/?format=json";
      String modelUrlString = "http://ashik619.pythonanywhere.com/rest/models/?format=json";
      String selectedBrand = null;
@@ -51,6 +49,9 @@ import java.util.List;
      AlertDialog brandADBObject;
      AlertDialog.Builder modelADB;
      AlertDialog modelADBObject;
+     DownloadJson BranDownloadJson = new DownloadJson();
+     DownloadJson ModelDownloadJson = new DownloadJson();
+     boolean task = false;
 
 
 
@@ -58,36 +59,25 @@ import java.util.List;
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        tv2 = (TextView)findViewById(R.id.textView2);
+        make = (TextView)findViewById(R.id.textView1);
+        car = (TextView)findViewById(R.id.textView3);
         brandADB = new AlertDialog.Builder(this);
+        modelADB = new AlertDialog.Builder(this);
         //this.ParseBrandJson(temp);
         brandUrl = makeUrl(brandUrlString);
-        DownloadJson BranDownloadJson = new DownloadJson();
-        DownloadJson modelDownloadJson = new DownloadJson();
         BranDownloadJson.execute(brandUrl);
-        if (selectedBrand != null){
-            modelUrlString = modelUrlString + "&brandname=" + selectedBrand;
-            modelUrl = makeUrl(modelUrlString);
-            BranDownloadJson.execute(modelUrl);
-
-        }
-
+        task = false;
     }
      @Override
-     protected void onRestart() {
-         Toast.makeText(MainActivity.this,"restarting", Toast.LENGTH_SHORT).show();
-         super.onRestart();
-         brandADB = new AlertDialog.Builder(this);
-         //this.ParseBrandJson(temp);
-         brandUrl = makeUrl(brandUrlString);
-         DownloadJson BranDownloadJson = new DownloadJson();
-         BranDownloadJson.execute(brandUrl);
-         if (selectedBrand != null){
-             modelUrlString = modelUrlString + "&brandname=" + selectedBrand;
-             modelUrl = makeUrl(modelUrlString);
-             BranDownloadJson.execute(modelUrl);
+     protected void onResume() {
+         //Toast.makeText(MainActivity.this,"restarting", Toast.LENGTH_SHORT).show();
+         super.onResume();
+         System.out.println("restaring");
+         if(selectedBrand != null)
+             killactivity();
 
-         }
+
+
 
 
 
@@ -108,9 +98,13 @@ import java.util.List;
                  noInternetConnection();
              }
              else {
-                 Toast.makeText(MainActivity.this,"parsing", Toast.LENGTH_SHORT).show();
+                 System.out.println("on post excecute");
                  doparsing(result);
              }
+             //while(selectedBrand == null)
+             //{continue;}
+
+
 
          }
      }
@@ -158,9 +152,11 @@ import java.util.List;
      }
      void doparsing(String result){
          if(selectedBrand == null){
+             System.out.println("brand parsing");
 
              ParseBrandJson(result);
          } else if(selectedModel == null) {
+             System.out.println("model parsing");
              parseModelJson(result);
          }
      }
@@ -170,38 +166,54 @@ import java.util.List;
              JSONObject root = new JSONObject(BrandJson);
              int count = root.getInt("count");
              JSONArray brandsarray = root.getJSONArray("results");
-
-             for (int i=0; i<count; i++) {
+             final int len = brandsarray.length();
+             for (int i=0; i<len; i++) {
                  JSONObject brand = brandsarray.getJSONObject(i);
                  String bname = brand.getString("cname");
-                 Toast.makeText(MainActivity.this,"brand parsing"+bname, Toast.LENGTH_SHORT).show();
+                 //Toast.makeText(MainActivity.this,"brand parsing"+bname, Toast.LENGTH_SHORT).show();
+                 System.out.println("parsing" + bname);
+
                  Makes.add(bname);
              }
 
              final String[] barray = Makes.toArray(new String[0]);
-             tv2.setText(barray[0]);
-             //
-             //ArrayAdapter adapter = new ArrayAdapter(context, android.R.layout.select_dialog_item, barray);
              brandADB.setTitle("Select Make");
              brandADB.setItems(barray, new DialogInterface.OnClickListener() {
                  public void onClick(DialogInterface dialog, int item) {
-                     selectedBrand = barray[item];
-                     tv2.setText(selectedBrand);
+                     if(task == true){
+                         System.out.println("killing");
+                         killactivity();
+                     }
+                     else {
+                         selectedBrand = barray[item];
+                         startModelTask();
+                         task = true;
+                         System.out.println("model started");
+                         make.setText(selectedBrand);
+                     }
                  }
              });
              brandADBObject = brandADB.create();
+             BranDownloadJson.cancel(true);
 
-         } catch (JSONException e){}
+
+
+         } catch (Exception e){
+             System.out.println("exception");
+             throw new RuntimeException(e);
+         }
      }
      void parseModelJson(String ModelJson){
          try {
              JSONObject root = new JSONObject(ModelJson);
              int count = root.getInt("count");
              JSONArray modelsArray = root.getJSONArray("results");
-             for (int i=0; i<count; i++) {
+             final int lenc = modelsArray.length();
+             for (int i=0; i<lenc; i++) {
                  JSONObject brand = modelsArray.getJSONObject(i);
                  String carname = brand.getString("cmodel_name");
                  Cars.add(carname);
+                 System.out.println(carname);
              }
              final String[] cararray = Cars.toArray(new String[0]);
              //
@@ -210,12 +222,16 @@ import java.util.List;
              modelADB.setItems(cararray, new DialogInterface.OnClickListener() {
                  public void onClick(DialogInterface dialog, int item) {
                      selectedModel = cararray[item];
-                     tv2.setText(selectedModel);
+                     car.setText(selectedModel);
                  }
              });
              modelADBObject = modelADB.create();
 
-         } catch (JSONException e){}
+         } catch (Exception e){
+             System.out.println("exception");
+             throw new RuntimeException(e);
+
+         }
 
      }
      URL makeUrl(String urlString){
@@ -229,13 +245,19 @@ import java.util.List;
          }
      }
      public void SelectBrand(View v){
-         if(brandADBObject != null){
+         if(selectedBrand != null) {
+             System.out.println("killing in adb show");
+             killactivity();
+         }
+         else if(brandADBObject != null){
              brandADBObject.show();
          }
 
      }
      public void SelectModel(View v){
-         modelADBObject.show();
+         if(modelADBObject != null) {
+             modelADBObject.show();
+         }
      }
 
      public void noInternetConnection(){
@@ -245,10 +267,26 @@ import java.util.List;
      }
      public void startDetailsActivity(View v)
      {
-         Intent in2 = new Intent(this, DetailsActivity.class);
-         in2.putExtra("make", selectedBrand);
-         startActivity(in2);
+         Intent in1 = new Intent(this, DetailsActivity.class);
+         in1.putExtra("make", selectedBrand);
+         in1.putExtra("car", selectedModel);
+
+         startActivity(in1);
      }
+     public void startModelTask()
+     {
+         if(selectedBrand != null) {
+             modelUrlString = modelUrlString + "&brandname=" + selectedBrand;
+             modelUrl = makeUrl(modelUrlString);
+             this.
+
+             ModelDownloadJson.execute(modelUrl);
+         }
+     }
+     private void killactivity(){
+         this.recreate();
+     }
+
 
 
 }
